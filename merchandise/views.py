@@ -204,3 +204,74 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'])
+    def pay_with_mpesa(self, request, pk=None):
+        """
+        Initiate M-Pesa payment for an order
+        """
+        order = self.get_object()
+        
+        # Check if order is already paid or beyond payment stage
+        if order.status != 'PENDING':
+            return Response(
+                {"error": f"Order is already in '{order.status}' status and cannot be paid for"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate phone_number
+        phone_number = request.data.get('phone_number')
+        if not phone_number:
+            return Response(
+                {"error": "Phone number is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Format phone number if needed (ensure it's in 254XXXXXXXXX format)
+        if phone_number.startswith('0'):
+            phone_number = '254' + phone_number[1:]
+        elif phone_number.startswith('+254'):
+            phone_number = phone_number[1:]
+        
+        # Check phone number format
+        if not phone_number.startswith('254') or not phone_number.isdigit() or len(phone_number) != 12:
+            return Response(
+                {"error": "Phone number must be in the format 254XXXXXXXXX, +254XXXXXXXXX, or 07XXXXXXXX"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Redirect to payment app's M-Pesa initiation endpoint
+        from rest_framework.reverse import reverse
+        payment_url = reverse('mpesa-transaction-initiate-order-payment', request=request)
+        
+        # Prepare the data for the payment request
+        payment_data = {
+            'order_id': order.id,
+            'phone_number': phone_number
+        }
+        
+        # Use requests to make an internal API call
+        import requests
+        from django.conf import settings
+        
+        # Get the host from the request
+        host = request.get_host()
+        protocol = 'https' if request.is_secure() else 'http'
+        
+        # Construct the full URL
+        full_url = f"{protocol}://{host}{payment_url}"
+        
+        # Get the auth token from the request
+        auth_header = request.headers.get('Authorization')
+        headers = {}
+        if auth_header:
+            headers['Authorization'] = auth_header
+        
+        try:
+            response = requests.post(full_url, json=payment_data, headers=headers)
+            return Response(response.json(), status=response.status_code)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

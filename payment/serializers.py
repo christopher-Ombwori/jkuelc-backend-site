@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Payment, MembershipPayment, Notification, Feedback
+from .models import Payment, MembershipPayment, Notification, Feedback, MpesaTransaction
 from merchandise.models import Order
 
 User = get_user_model()
@@ -179,12 +179,39 @@ class FeedbackCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Feedback
-        fields = ['user', 'content', 'type', 'reference_id']
+        fields = ['type', 'content', 'reference_id']
+        
+    def create(self, validated_data):
+        # Set the user from the request
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class MpesaTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MpesaTransaction
+        fields = '__all__'
+        read_only_fields = [
+            'payment', 'merchant_request_id', 'checkout_request_id', 
+            'mpesa_receipt_number', 'transaction_date', 'result_code', 
+            'result_description', 'status', 'raw_request', 'raw_response', 
+            'created_at', 'updated_at'
+        ]
+
+
+class MpesaTransactionDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MpesaTransaction
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class MpesaTransactionCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MpesaTransaction
+        fields = ['phone_number', 'amount', 'reference', 'description']
     
-    def validate_user(self, value):
-        # Ensure the requesting user is the feedback provider or has admin permissions
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            if request.user.role == 'ADMIN' or request.user.id == value.id:
-                return value
-        raise serializers.ValidationError("You don't have permission to submit feedback for this user.")
+    def create(self, validated_data):
+        # Set raw_request as empty JSON object
+        validated_data['raw_request'] = {}
+        return super().create(validated_data)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Payment, MembershipPayment, Notification, Feedback
+from .models import Payment, MembershipPayment, Notification, Feedback, MpesaTransaction
 
 
 class PaymentAdmin(admin.ModelAdmin):
@@ -47,8 +47,23 @@ class FeedbackAdmin(admin.ModelAdmin):
     )
 
 
+class MpesaTransactionAdmin(admin.ModelAdmin):
+    list_display = ('phone_number', 'amount', 'reference', 'status', 'mpesa_receipt_number', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('phone_number', 'reference', 'mpesa_receipt_number', 'merchant_request_id', 'checkout_request_id')
+    readonly_fields = ('created_at', 'updated_at', 'raw_request', 'raw_response')
+    fieldsets = (
+        (None, {'fields': ('payment', 'phone_number', 'amount', 'reference', 'description')}),
+        ('Transaction Details', {'fields': ('status', 'merchant_request_id', 'checkout_request_id', 'mpesa_receipt_number', 'transaction_date')}),
+        ('Response', {'fields': ('result_code', 'result_description')}),
+        ('Raw Data', {'fields': ('raw_request', 'raw_response'), 'classes': ('collapse',)}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(MembershipPayment, MembershipPaymentAdmin)
 admin.site.register(Notification, NotificationAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
+admin.site.register(MpesaTransaction, MpesaTransactionAdmin)
 
