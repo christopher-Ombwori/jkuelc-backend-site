@@ -1,12 +1,13 @@
 from rest_framework import viewsets, permissions, status, generics, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.shortcuts import get_object_or_404
+from rest_framework.authtoken.models import Token
 
 from .serializers import (
     UserSerializer, UserDetailSerializer, UserCreateSerializer,
-    UserUpdateSerializer, PasswordChangeSerializer
+    UserUpdateSerializer, PasswordChangeSerializer, LoginSerializer
 )
 from .permissions import IsAdminOrManager, IsAdminOrManagerOrOwner
 
@@ -67,3 +68,38 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'status': 'password changed'}, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterView(generics.CreateAPIView):
+    """
+    API endpoint for user registration.
+    """
+    queryset = User.objects.all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = UserCreateSerializer
+
+
+class LoginView(generics.GenericAPIView):
+    """
+    API endpoint for user login. Returns auth token.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = authenticate(
+            username=serializer.validated_data['email'],
+            password=serializer.validated_data['password']
+        )
+        if user:
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({
+                'token': token.key,
+                'user': UserDetailSerializer(user).data
+            }, status=status.HTTP_200_OK)
+        return Response(
+            {'detail': 'Invalid credentials provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )

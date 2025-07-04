@@ -64,3 +64,13 @@ class PasswordChangeSerializer(serializers.Serializer):
         if attrs['new_password'] != attrs['new_password_confirm']:
             raise serializers.ValidationError({"new_password": "Password fields don't match."})
         return attrs
+
+
+class LoginSerializer(serializers.Serializer):
+    """Serializer for user login"""
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(
+        required=True, 
+        write_only=True,
+        style={'input_type': 'password'}
+    )

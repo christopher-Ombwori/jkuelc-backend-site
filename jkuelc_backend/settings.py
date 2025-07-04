@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure--pe$9_i2@=bj03gjp0w1)q=8%cr%xjq!7fdy-y_tq&@!wry-n3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -58,7 +58,6 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -150,7 +149,6 @@ AUTH_USER_MODEL = 'users.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -160,18 +158,20 @@ REST_FRAMEWORK = {
 }
 
 # CORS Settings
+CORS_ALLOW_ALL_ORIGINS = True # For development only
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'http://localhost:8082'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1:58984',
-    'http://127.0.0.1:58984/',
-    'https://127.0.0.1:58984',
-    'https://127.0.0.1:58984/'
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:8080',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
