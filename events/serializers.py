@@ -29,15 +29,17 @@ class EventDetailSerializer(serializers.ModelSerializer):
         model = Event
         fields = ['id', 'title', 'description', 'date', 'time', 'location', 'image', 
                   'attendees', 'status', 'is_featured', 'is_registration_open', 
-                  'created_by', 'is_past', 'registrations_count', 'created_at', 'updated_at']
+                  'created_by', 'is_past', 'registrations_count', 'created_at', 'updated_at', 'important_reminders']
         read_only_fields = ['id', 'created_at', 'updated_at', 'registrations_count']
     
     def get_created_by(self, obj):
-        return {
-            'id': obj.created_by.id,
-            'name': obj.created_by.name,
-            'email': obj.created_by.email
-        }
+        if obj.created_by:
+            return {
+                'id': obj.created_by.id,
+                'name': obj.created_by.name,
+                'email': obj.created_by.email
+            }
+        return None
     
     def get_registrations_count(self, obj):
         return obj.registrations.count()
@@ -49,7 +51,7 @@ class EventCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ['title', 'description', 'date', 'time', 'location', 'image', 
-                  'is_featured', 'is_registration_open', 'created_by']
+                  'is_featured', 'is_registration_open', 'created_by', 'important_reminders']
     
     def validate_created_by(self, value):
         # Ensure the requesting user is the creator or has admin permissions
@@ -66,7 +68,7 @@ class EventUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ['title', 'description', 'date', 'time', 'location', 'image', 
-                  'status', 'is_featured', 'is_registration_open']
+                  'status', 'is_featured', 'is_registration_open', 'important_reminders']
 
 
 class EventRegistrationSerializer(serializers.ModelSerializer):
@@ -78,11 +80,13 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventRegistration
         fields = ['id', 'event', 'user', 'user_name', 'event_title', 'registration_date', 'attended']
-        read_only_fields = ['id', 'registration_date']
+        read_only_fields = ['id', 'registration_date', 'user']
     
     def validate(self, attrs):
-        # Check if the event is open for registration
         event = attrs.get('event')
+        user = self.context['request'].user
+        
+        # Check if the event is open for registration
         if not event.is_registration_open:
             raise serializers.ValidationError("This event is not open for registration.")
         
@@ -91,11 +95,15 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cannot register for past events.")
         
         # Check if the user is already registered
-        user = attrs.get('user')
         if EventRegistration.objects.filter(event=event, user=user).exists():
             raise serializers.ValidationError("You are already registered for this event.")
         
         return attrs
+    
+    def create(self, validated_data):
+        # Automatically set the user to the authenticated user
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class EventAttendanceUpdateSerializer(serializers.ModelSerializer):

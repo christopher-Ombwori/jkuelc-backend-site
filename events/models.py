@@ -20,6 +20,7 @@ class Event(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='UPCOMING')
     is_featured = models.BooleanField(default=False)
     is_registration_open = models.BooleanField(default=True)
+    important_reminders = models.JSONField(default=list, blank=True, help_text="List of important reminders for attendees")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_events')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

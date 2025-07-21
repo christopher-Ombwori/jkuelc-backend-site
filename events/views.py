@@ -35,6 +35,8 @@ class EventViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         elif self.action in ['update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminOrManagerOrOwner()]
+        elif self.action in ['my_events', 'registered']:
+            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated(), IsAdminOrManager()]
     
     def get_queryset(self):
@@ -121,13 +123,27 @@ class EventRegistrationViewSet(viewsets.ModelViewSet):
     serializer_class = EventRegistrationSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__name', 'event__title']
+
+    
+
     
     def get_permissions(self):
-        if self.action in ['update', 'partial_update', 'destroy']:
+        # For create action, only require authentication
+        if self.action == 'create':
+            return [permissions.IsAuthenticated()]
+        
+        # For destroy action, allow users to delete their own registrations or admin/manager
+        if self.action == 'destroy':
+            return [permissions.IsAuthenticated()]
+        
+        # For other actions, require admin/manager permissions
+        if self.action in ['update', 'partial_update', 'update_attendance']:
             return [permissions.IsAuthenticated(), IsAdminOrManager()]
-        elif self.action == 'update_attendance':
-            return [permissions.IsAuthenticated(), IsAdminOrManager()]
+        
+        # For list and retrieve, only require authentication
         return [permissions.IsAuthenticated()]
+    
+
     
     def get_queryset(self):
         queryset = self.queryset
@@ -149,20 +165,19 @@ class EventRegistrationViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        # Check if user is registering themselves or if admin is registering someone else
-        user = serializer.validated_data.get('user')
-        if user.id != self.request.user.id and self.request.user.role not in ['ADMIN', 'MANAGER']:
-            raise PermissionError("You can only register yourself for events.")
-        
         # Save the registration
-        serializer.save()
+        registration = serializer.save()
         
         # Update event attendee count
-        event = serializer.validated_data.get('event')
+        event = registration.event
         event.attendees = EventRegistration.objects.filter(event=event).count()
         event.save()
     
     def perform_destroy(self, instance):
+        # Check if user can delete this registration
+        if self.request.user.role not in ['ADMIN', 'MANAGER'] and instance.user != self.request.user:
+            raise permissions.PermissionDenied("You can only delete your own registrations.")
+        
         # Save the event before deleting the registration
         event = instance.event
         
